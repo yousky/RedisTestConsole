@@ -80,7 +80,7 @@ namespace RedisTestConsole
         {
             RedisChannel subsPatternChannel = new RedisChannel(pattern, RedisChannel.PatternMode.Auto);
 
-            Regex replyToRegex = new Regex(@"\/ReplyTo\/([a-zA-Z0-9-]+)", RegexOptions.IgnoreCase);
+            Regex replyToRegex = new Regex(@"\/replyTo\/([a-zA-Z0-9-]+)", RegexOptions.IgnoreCase);
 
 
             await _subscriber.SubscribeAsync(subsPatternChannel, async (channel, message) =>
@@ -88,7 +88,7 @@ namespace RedisTestConsole
                 Match replyMatch = replyToRegex.Match(channel);
                 if (replyMatch.Success)
                 {
-                    string replyTo = $"/ReplyTo/{replyMatch.Groups[1].Value}";
+                    string replyTo = $"/replyTo/{replyMatch.Groups[1].Value}";
                     RedisChannel replyChannel = new RedisChannel(replyTo, RedisChannel.PatternMode.Auto);
                     long redisCnt = _publisher.Publish(replyChannel, 1);
                     _logger.Info($"[{_redisId}]PublishAsync {replyChannel}[redisCnt: {redisCnt}] : reply 1");
@@ -105,7 +105,7 @@ namespace RedisTestConsole
         public async Task<long> PublishWithTwoWayHandShakeAsync(string channel, string message)
         {
             //응답을 받기 위한 전 처리부
-            string replyTo = $"/ReplyTo/{Guid.NewGuid().ToString()}";
+            string replyTo = $"/replyTo/{Guid.NewGuid().ToString()}";
             channel = channel + replyTo;
             var waiter = new BlockingCollection<long>();
             RedisChannel subsPatternChannel = new RedisChannel(replyTo, RedisChannel.PatternMode.Auto); //구독
