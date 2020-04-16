@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "RedisTestConsole": {
+      "commandName": "Project",
+      "commandLineArgs": "dev"
+    }
+  }
+}
