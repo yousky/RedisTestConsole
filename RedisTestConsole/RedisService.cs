@@ -19,7 +19,7 @@ namespace RedisTestConsole
 
         string _redisConnectionConfiguration;
 
-        int _redisId;
+        public int _redisId;
 
         public RedisService(int redisId, string redisConnectionConfiguration)
         {
@@ -69,7 +69,7 @@ namespace RedisTestConsole
             _logger.Info($"[{_redisId}]PSubscribe : " + pattern);
         }
 
-        public async Task PUnubscribe(string pattern)
+        public async Task PUnSubscribe(string pattern)
         {
             RedisChannel subsPatternChannel = new RedisChannel(pattern, RedisChannel.PatternMode.Auto);
             await _subscriber.UnsubscribeAsync(subsPatternChannel);

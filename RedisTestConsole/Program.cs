@@ -12,13 +12,14 @@ namespace RedisTestConsole
 {
     class Program
     {
-        static RedisService _pubRedisService;
         static ILog _logger;
 
         static int _lastRedisId = 0;
         static string _redisConnectionConfiguration;
 
         static Dictionary<int, RedisService> _dicRedisService = new Dictionary<int, RedisService>();
+        static RedisService _pubRedisService;
+        static RedisService _subRedisService;
 
         static void Main(string[] args)
         {
@@ -36,12 +37,21 @@ namespace RedisTestConsole
             try
             {
                 _pubRedisService = await NewRedisService(true);
+                _subRedisService = await NewRedisService(true);
 
                 Console.WriteLine("Your input (q to quit)");
-                Console.WriteLine("ex) psub \"pattern/*\" d1000 t2 c");
-                Console.WriteLine("Subscribe a pattern/* with 2thread and delay 1000ms, certenly");
+                Console.WriteLine("");
+                Console.WriteLine("ex) psub \"pattern/*\" d1000 s2 c");
+                Console.WriteLine("Subscribe a pattern/* with 2 subscriber and delay 1000ms, certenly(2way handshake).");
+                Console.WriteLine("1 always corresponds to the same service, and in the case of 2 or more, it becomes a increment service from 2.");
+                Console.WriteLine("");
                 Console.WriteLine("ex) pub \"pattern/aaa\" \"message\" d1 w10 c");
-                Console.WriteLine("Publish a pattern/aaa with 10 repeat and delay 1ms, certenly");
+                Console.WriteLine("Publish a pattern/aaa with 10 repeat and delay 1ms, certenly(2way handshake)");
+                Console.WriteLine("");
+                Console.WriteLine("ex) punsub \"pattern/*\" s2");
+                Console.WriteLine("UnSubscribe a pattern/* with 2 subscriber");
+                Console.WriteLine("1 always corresponds to the same service, and in the case of 2 or more, it becomes a increment service from 2.");
+                Console.WriteLine("");
 
                 string input;
                 do
@@ -59,6 +69,16 @@ namespace RedisTestConsole
                         Console.WriteLine($"UsePSubs : {input}");
                         await PSubsAsync(match);
                     }
+                    else if (UsePUnSubs(input, out match))
+                    {
+                        Console.WriteLine($"UsePUnSubs : {input}");
+                        await PUnSubsAsync(match);
+                    }
+                    //else if (input.ToLower() == "d1")
+                    //{
+                    //    Console.WriteLine($"DELETE RedisService : {input}");
+                    //    DisposeRedisService(true, _subRedisService);
+                    //}
                     else
                     {
                         Console.WriteLine($"Unknown Command : {input}");
@@ -164,9 +184,57 @@ namespace RedisTestConsole
             return redisService;
         }
 
+        private static void DisposeRedisService(bool useDic, RedisService redisService)
+        {
+            if (useDic)
+            {
+                _dicRedisService.Remove(redisService._redisId);
+            }
+
+            redisService.Dispose();
+        }
+
+        protected static bool UsePUnSubs(string input, out Match match)
+        {
+            Regex regex = new Regex("^punsub \"(.+)\"( +s(\\d+))?$", RegexOptions.IgnoreCase);  //^punsub "(.+)"( +s(\d+))?$     punsub "pattern" s5
+
+            match = regex.Match(input);
+            if (match.Success)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        protected static async Task PUnSubsAsync(Match match)
+        {
+            //punsub "pattern" s5
+
+            string pattern = match.Groups[1].Value;
+            string strServiceCnt = match.Groups[3].Value;
+
+            int serviceCnt = string.IsNullOrWhiteSpace(strServiceCnt) ? 1 : int.Parse(strServiceCnt);
+
+            for (int i = 0; i < serviceCnt; i++)
+            {
+                RedisService redisService;
+                if (i == 0)
+                {
+                    redisService = _subRedisService;
+                }
+                else
+                {
+                    redisService = await NewRedisService(true);
+                }
+
+                await redisService.PUnSubscribe(pattern);
+            }
+        }
+
         protected static bool UsePSubs(string input, out Match match)
         {
-            Regex regex = new Regex("^psub \"(.+)\"( +d(\\d+))?( +t(\\d+))?( +c)?$", RegexOptions.IgnoreCase);  //^psub "(.+)"( +d(\d+))?( +t(\d+))?( +c)?$     psub "pattern" d1 t5 c
+            Regex regex = new Regex("^psub \"(.+)\"( +d(\\d+))?( +s(\\d+))?( +c)?$", RegexOptions.IgnoreCase);  //^psub "(.+)"( +d(\d+))?( +s(\d+))?( +c)?$     psub "pattern" d1 s5 c
 
             match = regex.Match(input);
             if (match.Success)
@@ -191,7 +259,15 @@ namespace RedisTestConsole
 
             for (int i = 0; i < serviceCnt; i++)
             {
-                RedisService redisService = await NewRedisService(true);
+                RedisService redisService;
+                if (i == 0)
+                {
+                    redisService = _subRedisService;
+                }
+                else
+                {
+                    redisService = await NewRedisService(true);
+                }
 
                 if (string.IsNullOrWhiteSpace(strCertenly))
                 {
